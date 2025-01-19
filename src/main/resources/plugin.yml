@@ -1,0 +1,7 @@
+name: BraveKit
+version: '1.0-SNAPSHOT'
+main: me.koen.braveKit.BraveKit
+api-version: '1.21'
+authors: [ KBrave ]
+description: KitPvP plugin
+website: bravebyte.nl
