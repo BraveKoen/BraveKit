@@ -1,1 +1,8 @@
 received-axe: {}
+
+database:
+  host: localhost
+  port: 3306
+  name: your_database_name
+  user: your_username
+  password: your_password

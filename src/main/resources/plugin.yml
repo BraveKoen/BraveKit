@@ -5,3 +5,7 @@ api-version: '1.21'
 authors: [ KBrave ]
 description: KitPvP plugin
 website: bravebyte.nl
+commands:
+  kits:
+    description: An example command
+    usage: /<command> [help|version]

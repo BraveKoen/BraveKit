@@ -6,13 +6,16 @@ public final class BraveKit extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        
-        // Plugin startup logic
+        getLogger().info("BraveKit has been enabled!");
+
+        getCommand("kits").setExecutor(new OpenKitSelector());
+
 
     }
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        saveConfig();
+        getLogger().info("Your plugin has been disabled!");
     }
 }
