@@ -3,16 +3,27 @@ package me.koen.braveKit.kit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class Kit {
     private final String name;
-    private final Material icon;
+    private final ItemStack icon;
     private final List<String> description;
     private final ItemStack[] items;
 
-    public Kit(String name, Material icon, List<String> description, ItemStack[] items) {
+    public Kit(String name, ItemStack icon, List<String> description, ItemStack[] items) {
+
+        ItemMeta meta = icon.getItemMeta();
+        assert meta != null;
+        meta.setDisplayName("§6" + name);  // Set name (§ is color code)
+        meta.setLore(description);
+        meta.setCustomModelData(1234);
+
+        icon.setItemMeta(meta);
+
         this.name = name;
         this.icon = icon;
         this.description = description;
@@ -23,8 +34,12 @@ public class Kit {
         return name;
     }
 
-    public Material getIcon() {
+    public ItemStack getIcon() {
         return icon;
+    }
+
+    public ItemStack[] getItems() {
+        return items;
     }
 
     public List<String> getDescription() {
@@ -32,6 +47,11 @@ public class Kit {
     }
 
     public void giveTo(Player player) {
-        player.getInventory().addItem(items);
+        // Filter out null items and add them one by one
+        for (ItemStack item : items) {
+            if (item != null && item.getType() != Material.AIR) {
+                player.getInventory().addItem(item.clone());
+            }
+        }
     }
 }

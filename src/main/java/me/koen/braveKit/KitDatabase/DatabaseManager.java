@@ -2,11 +2,17 @@ package me.koen.braveKit.KitDatabase;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import de.tr7zw.nbtapi.NBT;
+import de.tr7zw.nbtapi.iface.ReadWriteNBT;
+import me.koen.braveKit.kit.Kit;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.inventory.ItemStack;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.*;
 
 import static org.bukkit.Bukkit.getLogger;
 
@@ -78,5 +84,73 @@ public class DatabaseManager {
             throw new SQLException("Database connection pool is not initialized!");
         }
         return dataSource.getConnection();
+    }
+
+    public void SaveKit(Kit kit)  {
+        String insertSQL = """
+    INSERT INTO kits (name, description, icon, items, is_active, cooldown, permission)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    """;
+
+        ItemStack kitIcon = kit.getIcon();
+        ReadWriteNBT nbtIcon = NBT.itemStackToNBT(kitIcon);
+        String jsonIcon = nbtIcon.toString();
+
+        ItemStack[] kitItems = kit.getItems();
+        ReadWriteNBT nbtItems = NBT.itemStackArrayToNBT(kitItems);
+        String jsonItems = nbtItems.toString();
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(insertSQL)) {
+            stmt.setString(1, kit.getName());
+            stmt.setString(2, String.valueOf(kit.getDescription()));
+            stmt.setString(3, jsonIcon);
+            stmt.setString(4, jsonItems);
+            stmt.setBoolean(5, true);
+            stmt.setInt(6, 30);
+            stmt.setString(7, "ability.use");
+            stmt.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public Map<String, Kit> getAllKits() {
+        String selectSQL = """
+            SELECT id, name, description, icon, items, is_active, cooldown, permission 
+            FROM kits
+            """;
+
+        Map<String, Kit> kits = new HashMap<>();
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(selectSQL);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                // Convert JSON string back to ItemStack for icon
+                String jsonIcon = rs.getString("icon");
+                ReadWriteNBT nbtIcon = NBT.parseNBT(jsonIcon);
+                ItemStack icon = NBT.itemStackFromNBT(nbtIcon);
+
+                // Convert JSON string back to ItemStack array for items
+                String jsonItems = rs.getString("items");
+                ReadWriteNBT nbtItems = NBT.parseNBT(jsonItems);
+                ItemStack[] items = NBT.itemStackArrayFromNBT(nbtItems);
+
+                String kitName = rs.getString("name");
+
+                Kit kit = new Kit(
+                        kitName,
+                        icon,
+                        Collections.singletonList(rs.getString("description")),
+                        items
+                );
+                kits.put(kitName, kit);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return kits;
     }
 }

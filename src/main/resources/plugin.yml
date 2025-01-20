@@ -5,7 +5,19 @@ api-version: '1.21'
 authors: [ KBrave ]
 description: KitPvP plugin
 website: bravebyte.nl
+depend: [NBTAPI]
 commands:
   kits:
-    description: An example command
-    usage: /<command> [help|version]
+    description: Opens the kit selector menu
+    usage: /kits
+  createkit:
+    description: Creates a new kit from inventory
+    usage: /createkit
+  refreshkits:
+    description: get all the kits from the database
+    usage: /refreshkits
+
+libraries:
+  - com.zaxxer:HikariCP:5.0.1
+  - org.slf4j:slf4j-api:2.0.16
+  - org.javassist:javassist:3.20.0-GA
