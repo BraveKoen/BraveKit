@@ -14,11 +14,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 
+import static org.bukkit.Bukkit.getConsoleSender;
 import static org.bukkit.Bukkit.getLogger;
 
 public class DatabaseManager {
     private HikariDataSource dataSource;
-    private FileConfiguration config;
+    private final FileConfiguration config;
 
     public DatabaseManager(FileConfiguration config) {
         this.config = config;
@@ -115,13 +116,13 @@ public class DatabaseManager {
         }
     }
 
-    public Map<String, Kit> getAllKits() {
+    public Map<Integer, Kit> getAllKits() {
         String selectSQL = """
             SELECT id, name, description, icon, items, is_active, cooldown, permission 
             FROM kits
             """;
 
-        Map<String, Kit> kits = new HashMap<>();
+        Map<Integer, Kit> kits = new HashMap<>();
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(selectSQL);
@@ -140,17 +141,40 @@ public class DatabaseManager {
 
                 String kitName = rs.getString("name");
 
+                assert icon != null;
                 Kit kit = new Kit(
+                        rs.getInt("id"),
                         kitName,
                         icon,
                         Collections.singletonList(rs.getString("description")),
-                        items
+                        items,
+                        rs.getInt("cooldown")
                 );
-                kits.put(kitName.toLowerCase(), kit);
+                kits.put(rs.getInt("id"), kit);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
         return kits;
+    }
+
+    public int getKitId(){
+        int kitId = -1;
+        String selectSQL = """
+        SELECT COALESCE(MAX(id) + 1, 1) AS next_id FROM kits
+        """;
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(selectSQL);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                kitId = rs.getInt("next_id");  // Now using the alias name
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        getConsoleSender().sendMessage(String.valueOf(kitId));
+        return kitId;
     }
 }

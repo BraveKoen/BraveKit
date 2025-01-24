@@ -4,108 +4,110 @@ import me.koen.braveKit.KitDatabase.DatabaseManager;
 import me.koen.braveKit.KitInventory.KitUI;
 import me.koen.braveKit.kit.Kit;
 
+import me.koen.braveKit.kit.KitBuilder;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 
 import java.util.*;
 
 
 public class OpenKitSelector implements CommandExecutor {
     private final DatabaseManager database;
-    private Map<String, Kit> kits = new HashMap<>();
+    private Map<Integer, Kit> kits = new HashMap<>();
     private final NamespacedKey kitNameKey;
     private final KitUI kitUI;
+    private final Plugin plugin;
+    private final FileConfiguration pluginConfig;
 
-    public OpenKitSelector(BraveKit plugin, DatabaseManager database) {
+    public OpenKitSelector(BraveKit plugin, DatabaseManager database, FileConfiguration pluginConfig) {
+        this.plugin = plugin;
         this.database = database;
-        this.kitNameKey = new NamespacedKey(plugin, "kit-name");
-        this.kitUI = new KitUI("koenKit", kitNameKey, this);
+        this.pluginConfig = pluginConfig;
+
+        String kitName = validateConfigString("kit-ui-name", "Default Kit Menu", 32, "[a-zA-Z0-9 ]+");
+        String secredKey = validateConfigString("kit-key", "KitSecred", 100, "[a-zA-Z0-9]+");
+
+        this.kitNameKey = new NamespacedKey(plugin, secredKey);
+
+        this.kitUI = new KitUI(kitName, kitNameKey, this);
         plugin.getServer().getPluginManager().registerEvents(kitUI, plugin);
     }
 
-    public void givePlayerKit(Player player, String kitId) {
-        String cleanId = kitId.replaceAll("§[0-9a-fk-or]", "");
-        Kit kit = kits.get(cleanId);
-        if(kit == null) {
+    public void givePlayerKit(Player player, int kitId) {
+        Kit kit = kits.get(kitId);
+        if (kit == null) {
             player.sendMessage("ERROR: No kit found with ID: '" + kitId + "'");
             return;
         }
+
+        //check if player has a countdown on the kit
+
         kit.giveTo(player);
+
     }
+
     public void refreshKits() {
         kits.putAll(database.getAllKits());
         kitUI.updateKits(kits);
     }
 
-    private void CreateKit(Player player, String[] args){
-        ItemStack[] listItems = player.getInventory().getContents();
-        // Check for empty inventory
-        boolean hasItems = false;
-        for (ItemStack item : listItems) {
-            if (item != null && item.getType() != Material.AIR) {
-                hasItems = true;
-                break;
+    private void CreateKit(Player player, String[] args) {
+
+        if (args.length < 1) {
+            player.sendMessage(ChatColor.RED + "Usage: /CreateKit <kit name>");
+            return;
+        }
+
+        KitBuilder builder = new KitBuilder(database.getKitId(), plugin, kitNameKey, player, args[0]);
+        builder.buildKit().thenAccept(kit -> {
+            if (kit != null) {
+                kits.put(kit.getKitId(), kit);
+                database.SaveKit(kit);
+            }else{
+                player.sendMessage("Kit not created");
             }
-        }
-
-        if (!hasItems) {
-            player.sendMessage(ChatColor.RED + "There are no items in your inventory!");
-            return;
-        }
-
-        if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /CreateKit <name> <desc>");
-            return;
-        }
-
-        ItemStack playerIcon = player.getInventory().getItemInMainHand();
-        if (playerIcon == null || playerIcon.getType() == Material.AIR) {
-            player.sendMessage(ChatColor.RED + "You must hold an item to use as the kit icon!");
-            return;
-        }
-
-        // Create a copy of the icon to prevent reference issues
-        ItemStack iconCopy = playerIcon.clone();
-        ItemMeta meta = iconCopy.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.YELLOW + args[0] + " Kit");
-            PersistentDataContainer container = meta.getPersistentDataContainer();
-            container.set(kitNameKey, PersistentDataType.STRING, args[0]);
-            iconCopy.setItemMeta(meta);
-        }
-
-        // Create a copy of the inventory contents to prevent reference issues
-        ItemStack[] itemsCopy = new ItemStack[listItems.length];
-        for (int i = 0; i < listItems.length; i++) {
-            if (listItems[i] != null) {
-                itemsCopy[i] = listItems[i].clone();
-            }
-        }
-
-        Kit newKit = new Kit(args[0], iconCopy, Collections.singletonList(args[1]), itemsCopy);
-        kits.put(args[0], newKit);
-        player.sendMessage(ChatColor.GREEN + "Successfully created kit: " + args[0]);
-
-        database.SaveKit(newKit);
+        });
     }
 
-    @Override
+    private String validateConfigString(String configPath, String defaultValue, int maxLength, String pattern) {
+        if (!pluginConfig.contains(configPath)) {
+            plugin.getLogger().warning("Missing " + configPath + " in config! Using default value.");
+            return defaultValue;
+        }
+
+        String configValue = pluginConfig.getString(configPath);
+        if (configValue == null || configValue.trim().isEmpty()) {
+            plugin.getLogger().warning("Invalid " + configPath + " in config! Using default value.");
+            return defaultValue;
+        }
+
+        // Length validation
+        if (configValue.length() > maxLength) {
+            plugin.getLogger().warning(configPath + " too long! Truncating to " + maxLength + " characters.");
+            return configValue.substring(0, maxLength);
+        }
+
+        // Character validation with custom pattern
+        if (pattern != null && !configValue.matches(pattern)) {
+            plugin.getLogger().warning(configPath + " contains invalid characters! Using default value.");
+            return defaultValue;
+        }
+
+        return configValue;
+    }
+
+        @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage("This command can only be used by players!");
             return true;
         }
-
-        Player player = (Player) sender;
 
         switch (label.toLowerCase()) {
             case "kits":

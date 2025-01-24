@@ -21,28 +21,64 @@ import java.util.Map;
 
 public class KitUI implements Listener {
     private final NamespacedKey kitNameKey;
-    private final Inventory inv;
-    private Map<String, Kit> kitList;
+    private Inventory inv;
+    private Map<Integer, Kit> kitList;
     private final OpenKitSelector kitSelector;
+    private int startSize = 9;
+    private final String kitUIName;
 
     public KitUI(String kitUIName, NamespacedKey nameSpaceKey , OpenKitSelector kitSelector) {
         this.kitNameKey = nameSpaceKey;
-        this.inv = Bukkit.createInventory(null, 9,kitUIName);
+        this.kitUIName = kitUIName;
+        this.inv = Bukkit.createInventory(null, startSize,kitUIName);
         this.kitSelector = kitSelector;
     }
 
+    /**
+     * Initializes the inventory with kit icons. This method first clears the existing inventory,
+     * then populates it with icons representing each available kit.
+     *
+     * @implNote Each kit's icon is added to the inventory
+     *
+     * @see Kit#getIcon()
+     */
     public void initializeItems() {
         inv.clear();
-        // Add kits to inventory
         for (Kit kit : kitList.values()) {
             ItemStack icon = kit.getIcon();
             inv.addItem(icon);
         }
     }
 
-    public void updateKits(Map<String, Kit> kitList){
+    /**
+     * Updates the kit inventory and resizes it if necessary to accommodate all kits.
+     * The inventory size will always be a multiple of 9 to maintain Minecraft's standard layout.
+     *
+     * @param kitList The new map of kits to be displayed in the inventory
+     * @implNote If the number of kits exceeds the current inventory size, it will resize to the next multiple of 9
+     */
+    public void updateKits(Map<Integer, Kit> kitList) {
+        int requiredSlots = kitList.size();
+        int newSize = calculateInventorySize(requiredSlots);
+
+        if (newSize > startSize) {
+            this.inv = Bukkit.createInventory(null, newSize, kitUIName);
+            this.startSize = newSize;
+        }
+
         this.kitList = kitList;
         initializeItems();
+    }
+
+    /**
+     * Calculates the required inventory size based on the number of items.
+     * Returns the next multiple of 9 that can hold the specified number of items.
+     *
+     * @param items Number of items that need to be stored
+     * @return The calculated inventory size (always a multiple of 9)
+     */
+    private int calculateInventorySize(int items) {
+        return ((items + 8) / 9) * 9; // Rounds up to next multiple of 9
     }
 
     @EventHandler
@@ -59,17 +95,12 @@ public class KitUI implements Listener {
 
         final Player p = (Player) e.getWhoClicked();
 
-        // Using slots click is a best option for your inventory click's
-        p.sendMessage("You clicked at slot " + e.getRawSlot());
-        p.sendMessage("Model data " + clickedItem.getItemMeta().getCustomModelData());
-        p.sendMessage("Model data " + clickedItem.getItemMeta().getDisplayName().toLowerCase());
-        kitSelector.givePlayerKit(p, clickedItem.getItemMeta().getDisplayName().toLowerCase());
+        kitSelector.givePlayerKit(p, clickedItem.getItemMeta().getCustomModelData());
 
     }
 
 
     public void openInventory(final Player ent) {
         ent.openInventory(inv);
-
     }
 }

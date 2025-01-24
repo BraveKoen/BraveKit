@@ -1,12 +1,10 @@
+#kitName
+kit-ui-name: "Kit Selection"  # The name you want for your UI
+kit-key: "SecredKey"
+#database
 mysql:
   host: localhost
   port: 3306
   database: minecraft
-  username: admin
-  password: Avrodite1!
-database:
-  host: localhost
-  port: 3306
-  name: bravekitdb
   username: admin
   password: Avrodite1!
