@@ -146,7 +146,7 @@ public class DatabaseManager {
                         Collections.singletonList(rs.getString("description")),
                         items
                 );
-                kits.put(kitName, kit);
+                kits.put(kitName.toLowerCase(), kit);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

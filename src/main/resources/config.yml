@@ -1,8 +1,12 @@
-received-axe: {}
-
+mysql:
+  host: localhost
+  port: 3306
+  database: minecraft
+  username: admin
+  password: Avrodite1!
 database:
   host: localhost
   port: 3306
-  name: your_database_name
-  user: your_username
-  password: your_password
+  name: bravekitdb
+  username: admin
+  password: Avrodite1!

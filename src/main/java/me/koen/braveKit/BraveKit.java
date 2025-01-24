@@ -2,7 +2,7 @@ package me.koen.braveKit;
 
 import de.tr7zw.nbtapi.NBT;
 import me.koen.braveKit.KitDatabase.DatabaseManager;
-import me.koen.braveKit.KitInventory.KitInventory;
+import me.koen.braveKit.KitInventory.KitUI;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -18,7 +18,6 @@ public final class BraveKit extends JavaPlugin {
             return;
         }
         FileConfiguration config = getConfig();
-        getLogger().info("BraveKit has been enabled!");
 
         DatabaseManager databaseManager = new DatabaseManager(config);
         if (!databaseManager.isConntected()) {
@@ -28,15 +27,12 @@ public final class BraveKit extends JavaPlugin {
         }
 
         OpenKitSelector kitCommandHandler = new OpenKitSelector(this, databaseManager);
-        getServer().getPluginManager().registerEvents(new KitInventory(this,kitCommandHandler), this);
-
-
 
         getCommand("kits").setExecutor(kitCommandHandler);
         getCommand("createkit").setExecutor(kitCommandHandler);
         getCommand("refreshkits").setExecutor(kitCommandHandler);
 
-
+        getLogger().info("BraveKit has been enabled!");
     }
 
     @Override

@@ -1,9 +1,9 @@
 package me.koen.braveKit;
 
 import me.koen.braveKit.KitDatabase.DatabaseManager;
+import me.koen.braveKit.KitInventory.KitUI;
 import me.koen.braveKit.kit.Kit;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -11,7 +11,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -24,40 +23,31 @@ public class OpenKitSelector implements CommandExecutor {
     private final DatabaseManager database;
     private Map<String, Kit> kits = new HashMap<>();
     private final NamespacedKey kitNameKey;
+    private final KitUI kitUI;
 
     public OpenKitSelector(BraveKit plugin, DatabaseManager database) {
         this.database = database;
         this.kitNameKey = new NamespacedKey(plugin, "kit-name");
+        this.kitUI = new KitUI("koenKit", kitNameKey, this);
+        plugin.getServer().getPluginManager().registerEvents(kitUI, plugin);
     }
 
     public void givePlayerKit(Player player, String kitId) {
-        Kit kit = kits.get(kitId);
+        String cleanId = kitId.replaceAll("§[0-9a-fk-or]", "");
+        Kit kit = kits.get(cleanId);
+        if(kit == null) {
+            player.sendMessage("ERROR: No kit found with ID: '" + kitId + "'");
+            return;
+        }
         kit.giveTo(player);
     }
-
     public void refreshKits() {
         kits.putAll(database.getAllKits());
-    }
-
-    public void KitSelector(Player player) {
-
-        Inventory inventory = Bukkit.createInventory(player, 9,"KitInventory");
-
-        int testI =0;
-        for (Kit kit : kits.values()) {
-            player.sendMessage(Integer.toString(testI));
-            inventory.setItem(testI, kit.getIcon());
-            testI++;
-            if (testI > 9 ) {
-                break;
-            }
-        }
-        player.openInventory(inventory);
+        kitUI.updateKits(kits);
     }
 
     private void CreateKit(Player player, String[] args){
         ItemStack[] listItems = player.getInventory().getContents();
-
         // Check for empty inventory
         boolean hasItems = false;
         for (ItemStack item : listItems) {
@@ -116,11 +106,10 @@ public class OpenKitSelector implements CommandExecutor {
         }
 
         Player player = (Player) sender;
-       // KitSelector((Player) sender);
 
         switch (label.toLowerCase()) {
             case "kits":
-                KitSelector(player);
+                kitUI.openInventory(player);
                 break;
             case "createkit":
                 CreateKit(player, args);
