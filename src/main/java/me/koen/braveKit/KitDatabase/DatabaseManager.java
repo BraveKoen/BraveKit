@@ -6,12 +6,10 @@ import de.tr7zw.nbtapi.NBT;
 import de.tr7zw.nbtapi.iface.ReadWriteNBT;
 import me.koen.braveKit.kit.Kit;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.*;
 
 import static org.bukkit.Bukkit.getConsoleSender;
@@ -65,18 +63,65 @@ public class DatabaseManager {
 
     private void createTables() throws SQLException {
         String playerTableSQL = """
-            CREATE TABLE IF NOT EXISTS player_data (
-                uuid VARCHAR(36) PRIMARY KEY,
-                username VARCHAR(16) NOT NULL,
-                last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                play_time INT DEFAULT 0,
-                INDEX idx_username (username)
-            )
-            """;
+        CREATE TABLE IF NOT EXISTS player_data (
+            uuid VARCHAR(36) PRIMARY KEY,
+            username VARCHAR(16) NOT NULL,
+            last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            play_time INT DEFAULT 0,
+            INDEX idx_username (username)
+        )
+        """;
+
+        String kitsTableSQL = """
+        CREATE TABLE IF NOT EXISTS kits (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            icon TEXT,
+            items TEXT,
+            is_active BOOLEAN DEFAULT true,
+            cooldown INT,
+            permission VARCHAR(255)
+        )
+        """;
+
+        String kitUsageTableSQL = """
+        CREATE TABLE IF NOT EXISTS kit_usage (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            kit_id INT,
+            player_uuid VARCHAR(36),
+            used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (kit_id) REFERENCES kits(id)
+        )
+        """;
+
+        // Check if the index exists before creating it
+        String checkIndexSQL = """
+        SELECT COUNT(1) AS index_exists
+        FROM information_schema.statistics
+        WHERE table_schema = DATABASE()
+        AND table_name = 'kit_usage'
+        AND index_name = 'idx_kit_usage'
+        """;
+
+        String createIndexSQL = """
+        CREATE INDEX idx_kit_usage 
+        ON kit_usage (kit_id, player_uuid)
+        """;
 
         try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(playerTableSQL)) {
-            stmt.executeUpdate();
+             Statement stmt = conn.createStatement()) {
+            // Create tables
+            stmt.execute(playerTableSQL);
+            stmt.execute(kitsTableSQL);
+            stmt.execute(kitUsageTableSQL);
+
+            // Check if the index exists
+            ResultSet rs = stmt.executeQuery(checkIndexSQL);
+            if (rs.next() && rs.getInt("index_exists") == 0) {
+                // Index does not exist, so create it
+                stmt.execute(createIndexSQL);
+            }
         }
     }
 
@@ -87,7 +132,7 @@ public class DatabaseManager {
         return dataSource.getConnection();
     }
 
-    public void SaveKit(Kit kit)  {
+    public void saveKit(Kit kit)  {
         String insertSQL = """
     INSERT INTO kits (name, description, icon, items, is_active, cooldown, permission)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -176,5 +221,62 @@ public class DatabaseManager {
         }
         getConsoleSender().sendMessage(String.valueOf(kitId));
         return kitId;
+    }
+
+    /**
+     * Check if a player can use a specific kit
+     * @param player The player to check
+     * @param kitId The kit ID to check
+     * @param cooldownSeconds The cooldown duration in seconds
+     * @return true if the player can use the kit, false if on cooldown
+     */
+    public boolean canUseKit(Player player, int kitId, int cooldownSeconds) {
+        String query = "SELECT used_at FROM kit_usage " +
+                "WHERE kit_id = ? AND player_uuid = ? " +
+                "ORDER BY used_at DESC LIMIT 1";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, kitId);
+            stmt.setString(2, player.getUniqueId().toString());
+
+            ResultSet rs = stmt.executeQuery();
+
+            if (!rs.next()) {
+                return true; // No previous usage found
+            }
+
+            Timestamp lastUsed = rs.getTimestamp("used_at");
+            long secondsSinceLastUse = (System.currentTimeMillis() - lastUsed.getTime()) / 1000;
+
+            return secondsSinceLastUse >= cooldownSeconds;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false; // In case of error, prevent usage
+        }
+    }
+
+    /**
+     * Record that a player has used a kit
+     * @param player The player who used the kit
+     * @param kitId The kit ID that was used
+     */
+    public void recordKitUsage(Player player, int kitId) {
+        String query = "INSERT INTO kit_usage (kit_id, player_uuid, used_at) VALUES (?, ?, ?)";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, kitId);
+            stmt.setString(2, player.getUniqueId().toString());
+            stmt.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 }

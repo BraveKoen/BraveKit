@@ -20,18 +20,21 @@ import javax.annotation.Nullable;
 import java.util.Map;
 
 public class KitUI implements Listener {
+    private final String kitUIName;
     private final NamespacedKey kitNameKey;
+    private final OpenKitSelector kitSelector;
+    private static final int INITIAL_SIZE = 9;
+
     private Inventory inv;
     private Map<Integer, Kit> kitList;
-    private final OpenKitSelector kitSelector;
-    private int startSize = 9;
-    private final String kitUIName;
+    private int startSize;
 
     public KitUI(String kitUIName, NamespacedKey nameSpaceKey , OpenKitSelector kitSelector) {
-        this.kitNameKey = nameSpaceKey;
         this.kitUIName = kitUIName;
-        this.inv = Bukkit.createInventory(null, startSize,kitUIName);
+        this.kitNameKey = nameSpaceKey;
         this.kitSelector = kitSelector;
+        this.startSize = 9;
+        this.inv = Bukkit.createInventory(null, INITIAL_SIZE, kitUIName);
     }
 
     /**
@@ -58,15 +61,18 @@ public class KitUI implements Listener {
      * @implNote If the number of kits exceeds the current inventory size, it will resize to the next multiple of 9
      */
     public void updateKits(Map<Integer, Kit> kitList) {
+        if (kitList == null) {
+            throw new IllegalArgumentException("Kit list cannot be null");
+        }
         int requiredSlots = kitList.size();
         int newSize = calculateInventorySize(requiredSlots);
 
         if (newSize > startSize) {
-            this.inv = Bukkit.createInventory(null, newSize, kitUIName);
-            this.startSize = newSize;
+            inv = Bukkit.createInventory(null, newSize, kitUIName);
+            startSize = newSize;
         }
 
-        this.kitList = kitList;
+        this.kitList = Map.copyOf(kitList);  // Make defensive copy
         initializeItems();
     }
 
@@ -87,16 +93,23 @@ public class KitUI implements Listener {
 
         e.setCancelled(true);
 
-        @Nullable final ItemStack clickedItem = e.getCurrentItem();
+        // Get clicked item
+        final ItemStack clickedItem = e.getCurrentItem();
+        if (clickedItem == null || clickedItem.getType().isAir()) {
+            return;
+        }
 
+        // Validate ItemMeta exists
+        ItemMeta itemMeta = clickedItem.getItemMeta();
+        if (itemMeta == null || !itemMeta.hasCustomModelData()) {
+            return;
+        }
 
-        // verify current item is not null
-        if (clickedItem == null || clickedItem.getType().isAir()) return;
+        final Player player = (Player) e.getWhoClicked();
 
-        final Player p = (Player) e.getWhoClicked();
-
-        kitSelector.givePlayerKit(p, clickedItem.getItemMeta().getCustomModelData());
-
+        // Get kit ID and give kit
+        int kitId = itemMeta.getCustomModelData();
+        kitSelector.givePlayerKit(player, kitId);
     }
 
 
