@@ -4,10 +4,13 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public class Kit {
+    private static final Logger log = LoggerFactory.getLogger(Kit.class);
     private final int kitId;
     private final String name;
     private final ItemStack icon;
@@ -21,6 +24,7 @@ public class Kit {
     }
 
     public Kit(int kitId, String name, ItemStack icon, List<String> description, ItemStack[] items, int timeout) {
+        log.info("Creating kit " + kitId + ": " + name);
         this.kitId = kitId;
         ItemMeta meta = icon.getItemMeta();
         assert meta != null;

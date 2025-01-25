@@ -16,7 +16,9 @@ commands:
   refreshkits:
     description: get all the kits from the database
     usage: /refreshkits
-
+  debugbrave:
+    description: debugging plugin
+    usage: /debugbrave
 libraries:
   - com.zaxxer:HikariCP:5.0.1
   - org.slf4j:slf4j-api:2.0.16

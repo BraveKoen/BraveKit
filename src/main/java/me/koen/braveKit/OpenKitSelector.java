@@ -15,6 +15,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 
 import java.util.*;
@@ -70,17 +71,36 @@ public class OpenKitSelector implements CommandExecutor {
     }
 
     public void refreshKits() {
+        kits.clear();
+        plugin.getLogger().info("Cleared kits. Current size: " + kits.size()); // Debug log
+
+        int startId = 1;
         try {
-            //Map<Integer, Kit> newKits = database.getAllKits();
-            Map<Integer, Kit> newKitsConfig = getKitsFromConfig();
-            kits.clear();
-            //kits.putAll(newKits);
+            Map<Integer, Kit> newKits = database.getAllKits(startId);
+            plugin.getLogger().info("Loaded newKits from database. Size: " + newKits.size()); // Debug log
+
+            Map<Integer, Kit> newKitsConfig = getKitsFromConfig(newKits.size() + startId);
+            plugin.getLogger().info("Loaded newKitsConfig from config. Size: " + newKitsConfig.size()); // Debug log
+
+            kits.putAll(newKits);
+            plugin.getLogger().info("After adding newKits, kits size: " + kits.size()); // Debug log
+
             kits.putAll(newKitsConfig);
+            plugin.getLogger().info("After adding newKitsConfig, kits size: " + kits.size()); // Debug log
+
             kitUI.updateKits(Map.copyOf(kits));
             plugin.getLogger().info("Successfully refreshed " + kits.size() + " kits");
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to refresh kits: " + e.getMessage());
         }
+    }
+
+    public void debugbrave(Player player) {
+        for(int kitId : kits.keySet()) {
+            player.sendMessage(ChatColor.GREEN + "Kit " + kitId + ": " + kits.get(kitId).getName());
+            player.sendMessage(ChatColor.GREEN + "kitId: " + kits.get(kitId).getKitId());
+        }
+
     }
 
     private void createKit(Player player, String[] args) {
@@ -146,23 +166,21 @@ public class OpenKitSelector implements CommandExecutor {
         return configValue;
     }
 
-    private Map<Integer, Kit> getKitsFromConfig() {
-        int databaseCount = database.getKitId();
+    private Map<Integer, Kit> getKitsFromConfig(int startId) {
         Map<Integer, Kit> configKits = new HashMap<>();
 
         ConfigurationSection kitsSection = pluginConfig.getConfigurationSection("kits");
         if (kitsSection != null) {
             for (String key : kitsSection.getKeys(false)) {
                 try {
-                    int id = Integer.parseInt(key);
                     ConfigurationSection kitSection = kitsSection.getConfigurationSection(key);
-                    plugin.getLogger().info("Hier is de3333 e213");
                     // Parse the kit
-                    Kit kit = parseKitFromConfig(kitSection, databaseCount);
-                    databaseCount++;
+                    Kit kit = parseKitFromConfig(kitSection, startId);
+
                     if (kit != null) {
-                        configKits.put(id, kit);
+                        configKits.put(startId, kit);
                     }
+                    startId++;
                 } catch (NumberFormatException e) {
                     plugin.getLogger().warning("Invalid kit ID in config: " + key);
                 }
@@ -172,17 +190,18 @@ public class OpenKitSelector implements CommandExecutor {
     }
 
     private Kit parseKitFromConfig(ConfigurationSection section, int kitId) {
-        plugin.getLogger().info("start");
         String name = section.getString("name");
         List<String> description = section.getStringList("description"); // Get description as a list
         int cooldown = section.getInt("cooldown", 0); // Default cooldown to 0 if not specified
         String permission = section.getString("permission", ""); // Default permission to empty string
-        plugin.getLogger().info("dasfdfffffffffffff is de e213");
         //icon
         String icon = section.getString("icon");
         Material iconMaterial = Material.matchMaterial(icon);
         ItemStack iconStack = new ItemStack(iconMaterial, 1);
-        plugin.getLogger().info("Hier is de e213");
+        ItemMeta meta = iconStack.getItemMeta();
+        meta.setCustomModelData(kitId);
+
+        iconStack.setItemMeta(meta);
 
         // Parse items
         List<ItemStack> items = new ArrayList<>();
@@ -201,8 +220,7 @@ public class OpenKitSelector implements CommandExecutor {
         }
         ItemStack[] itemsStack = items.toArray(new ItemStack[0]);
         // Create and return the Kit object
-        plugin.getLogger().info("Hier is de error1");
-        return new Kit(kitId,name, iconStack, description, itemsStack);
+        return new Kit(kitId,name, iconStack, description, itemsStack, cooldown);
     }
 
 
@@ -222,6 +240,9 @@ public class OpenKitSelector implements CommandExecutor {
                 break;
             case "refreshkits":
                 refreshKits();
+                break;
+            case "debugbrave":
+                debugbrave(player);
                 break;
             default:
                 player.sendMessage(ChatColor.RED + "Unknown command!");

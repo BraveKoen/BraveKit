@@ -31,6 +31,7 @@ public final class BraveKit extends JavaPlugin {
         getCommand("kits").setExecutor(kitCommandHandler);
         getCommand("createkit").setExecutor(kitCommandHandler);
         getCommand("refreshkits").setExecutor(kitCommandHandler);
+        getCommand("debugbrave").setExecutor(kitCommandHandler);
 
         getLogger().info("BraveKit has been enabled!");
     }

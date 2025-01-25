@@ -161,7 +161,7 @@ public class DatabaseManager {
         }
     }
 
-    public Map<Integer, Kit> getAllKits() {
+    public Map<Integer, Kit> getAllKits(int startId) {
         String selectSQL = """
             SELECT id, name, description, icon, items, is_active, cooldown, permission 
             FROM kits
@@ -188,13 +188,14 @@ public class DatabaseManager {
 
                 assert icon != null;
                 Kit kit = new Kit(
-                        rs.getInt("id"),
+                        startId,
                         kitName,
                         icon,
                         Collections.singletonList(rs.getString("description")),
                         items,
                         rs.getInt("cooldown")
                 );
+                startId++;
                 kits.put(rs.getInt("id"), kit);
             }
         } catch (Exception e) {
