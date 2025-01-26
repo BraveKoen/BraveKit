@@ -3,6 +3,8 @@ package me.koen.braveKit;
 import me.koen.braveKit.KitDatabase.DatabaseManager;
 import me.koen.braveKit.KitInventory.KitUI;
 import me.koen.braveKit.kit.Kit;
+import me.koen.braveKit.kit.KitParser;
+
 
 import me.koen.braveKit.kit.KitBuilder;
 import org.bukkit.ChatColor;
@@ -15,6 +17,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 
 import java.util.*;
@@ -41,6 +44,7 @@ public class OpenKitSelector implements CommandExecutor {
 
         this.kitUI = new KitUI(kitName, kitNameKey, this);
         plugin.getServer().getPluginManager().registerEvents(kitUI, plugin);
+        configKitToDatabase();
         refreshKits();
     }
 
@@ -70,17 +74,34 @@ public class OpenKitSelector implements CommandExecutor {
     }
 
     public void refreshKits() {
+        kits.clear();
         try {
-            //Map<Integer, Kit> newKits = database.getAllKits();
-            Map<Integer, Kit> newKitsConfig = getKitsFromConfig();
-            kits.clear();
-            //kits.putAll(newKits);
-            kits.putAll(newKitsConfig);
+            Map<Integer, Kit> newKits = database.getAllKits();
+            kits.putAll(newKits);
             kitUI.updateKits(Map.copyOf(kits));
-            plugin.getLogger().info("Successfully refreshed " + kits.size() + " kits");
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to refresh kits: " + e.getMessage());
         }
+    }
+
+    private void configKitToDatabase() {
+        List<Kit> l = KitParser.getKitsFromConfig(pluginConfig);
+        for(Kit kit : l) {
+            if(database.findKitByName(kit.getName())){
+                plugin.getLogger().info("Kit " + kit.getName() + " already exists in database. Skipping.");
+                continue;
+            }
+            database.saveKit(kit);
+            plugin.getLogger().info(ChatColor.GREEN + "Kit " + kit.getKitId() + ": " + kit.getName());
+        }
+    }
+
+    public void debugbrave(Player player) {
+        for(int kitId : kits.keySet()) {
+            player.sendMessage(ChatColor.GREEN + "Kit " + kitId + ": " + kits.get(kitId).getName());
+            player.sendMessage(ChatColor.GREEN + "kitId: " + kits.get(kitId).getKitId());
+        }
+
     }
 
     private void createKit(Player player, String[] args) {
@@ -146,65 +167,6 @@ public class OpenKitSelector implements CommandExecutor {
         return configValue;
     }
 
-    private Map<Integer, Kit> getKitsFromConfig() {
-        int databaseCount = database.getKitId();
-        Map<Integer, Kit> configKits = new HashMap<>();
-
-        ConfigurationSection kitsSection = pluginConfig.getConfigurationSection("kits");
-        if (kitsSection != null) {
-            for (String key : kitsSection.getKeys(false)) {
-                try {
-                    int id = Integer.parseInt(key);
-                    ConfigurationSection kitSection = kitsSection.getConfigurationSection(key);
-                    plugin.getLogger().info("Hier is de3333 e213");
-                    // Parse the kit
-                    Kit kit = parseKitFromConfig(kitSection, databaseCount);
-                    databaseCount++;
-                    if (kit != null) {
-                        configKits.put(id, kit);
-                    }
-                } catch (NumberFormatException e) {
-                    plugin.getLogger().warning("Invalid kit ID in config: " + key);
-                }
-            }
-        }
-        return configKits;
-    }
-
-    private Kit parseKitFromConfig(ConfigurationSection section, int kitId) {
-        plugin.getLogger().info("start");
-        String name = section.getString("name");
-        List<String> description = section.getStringList("description"); // Get description as a list
-        int cooldown = section.getInt("cooldown", 0); // Default cooldown to 0 if not specified
-        String permission = section.getString("permission", ""); // Default permission to empty string
-        plugin.getLogger().info("dasfdfffffffffffff is de e213");
-        //icon
-        String icon = section.getString("icon");
-        Material iconMaterial = Material.matchMaterial(icon);
-        ItemStack iconStack = new ItemStack(iconMaterial, 1);
-        plugin.getLogger().info("Hier is de e213");
-
-        // Parse items
-        List<ItemStack> items = new ArrayList<>();
-        List<Map<?, ?>> itemMaps = section.getMapList("items");
-        for (Map<?, ?> itemMap : itemMaps) {
-            String materialName = (String) itemMap.get("material");
-            int amount = (int) itemMap.get("amount");
-
-            Material material = Material.matchMaterial(materialName);
-            if (material != null) {
-                ItemStack item = new ItemStack(material, amount);
-                items.add(item);
-            } else {
-                plugin.getLogger().warning("Invalid material in kit: " + materialName);
-            }
-        }
-        ItemStack[] itemsStack = items.toArray(new ItemStack[0]);
-        // Create and return the Kit object
-        plugin.getLogger().info("Hier is de error1");
-        return new Kit(kitId,name, iconStack, description, itemsStack);
-    }
-
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -222,6 +184,9 @@ public class OpenKitSelector implements CommandExecutor {
                 break;
             case "refreshkits":
                 refreshKits();
+                break;
+            case "debugbrave":
+                debugbrave(player);
                 break;
             default:
                 player.sendMessage(ChatColor.RED + "Unknown command!");
