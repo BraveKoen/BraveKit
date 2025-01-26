@@ -35,6 +35,10 @@ public class DatabaseManager {
         return dataSource != null;
     }
 
+    public void closeConnection() {
+        dataSource.close();
+    }
+
     private void setupHikariCP() {
         HikariConfig hikariConfig = new HikariConfig();
 

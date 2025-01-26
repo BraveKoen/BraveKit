@@ -7,7 +7,7 @@ BraveKit is a Minecraft Bukkit/Spigot plugin designed to provide robust function
 
 ## Features
 
-
+![Untitled-2024-10-01-1046.png](Untitled-2024-10-01-1046.png)
 - **Kit Management**: Add, create, and configure kits through in-game commands or configuration files.
 - **Inventory UI**: A user-friendly inventory interface for players to select and use available kits.
 - **Database Integration**: Uses MySQL (via HikariCP) for storing kits, player usage, and related data.

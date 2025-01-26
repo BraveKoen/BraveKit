@@ -7,7 +7,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.configuration.file.FileConfiguration;
 
 public final class BraveKit extends JavaPlugin {
-
+    FileConfiguration config = getConfig();
+    DatabaseManager databaseManager = new DatabaseManager(config);
 
     @Override
     public void onEnable() {
@@ -17,9 +18,7 @@ public final class BraveKit extends JavaPlugin {
             getPluginLoader().disablePlugin(this);
             return;
         }
-        FileConfiguration config = getConfig();
 
-        DatabaseManager databaseManager = new DatabaseManager(config);
         if (!databaseManager.isConntected()) {
             getLogger().severe("Failed to initialize database. Disabling plugin.");
             getServer().getPluginManager().disablePlugin(this);
@@ -38,6 +37,7 @@ public final class BraveKit extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        databaseManager.closeConnection();
         saveDefaultConfig();
         getLogger().info("Your plugin has been disabled!");
     }
