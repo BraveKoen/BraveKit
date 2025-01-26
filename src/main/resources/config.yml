@@ -7,7 +7,7 @@ mysql:
   port: 3306
   database: minecraft
   username: admin
-  password: Avrodite1!
+  password: password
 kits:
   1:
     name: "Starter Kit"
@@ -40,4 +40,4 @@ kits:
       - material: GOLDEN_APPLE
         amount: 3
       - material: ARROW
-        amount: 64
+        amount: 62

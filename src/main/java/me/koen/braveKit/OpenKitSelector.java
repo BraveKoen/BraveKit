@@ -3,6 +3,8 @@ package me.koen.braveKit;
 import me.koen.braveKit.KitDatabase.DatabaseManager;
 import me.koen.braveKit.KitInventory.KitUI;
 import me.koen.braveKit.kit.Kit;
+import me.koen.braveKit.kit.KitParser;
+
 
 import me.koen.braveKit.kit.KitBuilder;
 import org.bukkit.ChatColor;
@@ -42,6 +44,7 @@ public class OpenKitSelector implements CommandExecutor {
 
         this.kitUI = new KitUI(kitName, kitNameKey, this);
         plugin.getServer().getPluginManager().registerEvents(kitUI, plugin);
+        configKitToDatabase();
         refreshKits();
     }
 
@@ -72,26 +75,24 @@ public class OpenKitSelector implements CommandExecutor {
 
     public void refreshKits() {
         kits.clear();
-        plugin.getLogger().info("Cleared kits. Current size: " + kits.size()); // Debug log
-
-        int startId = 1;
         try {
-            Map<Integer, Kit> newKits = database.getAllKits(startId);
-            plugin.getLogger().info("Loaded newKits from database. Size: " + newKits.size()); // Debug log
-
-            Map<Integer, Kit> newKitsConfig = getKitsFromConfig(newKits.size() + startId);
-            plugin.getLogger().info("Loaded newKitsConfig from config. Size: " + newKitsConfig.size()); // Debug log
-
+            Map<Integer, Kit> newKits = database.getAllKits();
             kits.putAll(newKits);
-            plugin.getLogger().info("After adding newKits, kits size: " + kits.size()); // Debug log
-
-            kits.putAll(newKitsConfig);
-            plugin.getLogger().info("After adding newKitsConfig, kits size: " + kits.size()); // Debug log
-
             kitUI.updateKits(Map.copyOf(kits));
-            plugin.getLogger().info("Successfully refreshed " + kits.size() + " kits");
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to refresh kits: " + e.getMessage());
+        }
+    }
+
+    private void configKitToDatabase() {
+        List<Kit> l = KitParser.getKitsFromConfig(pluginConfig);
+        for(Kit kit : l) {
+            if(database.findKitByName(kit.getName())){
+                plugin.getLogger().info("Kit " + kit.getName() + " already exists in database. Skipping.");
+                continue;
+            }
+            database.saveKit(kit);
+            plugin.getLogger().info(ChatColor.GREEN + "Kit " + kit.getKitId() + ": " + kit.getName());
         }
     }
 
@@ -164,63 +165,6 @@ public class OpenKitSelector implements CommandExecutor {
         }
 
         return configValue;
-    }
-
-    private Map<Integer, Kit> getKitsFromConfig(int startId) {
-        Map<Integer, Kit> configKits = new HashMap<>();
-
-        ConfigurationSection kitsSection = pluginConfig.getConfigurationSection("kits");
-        if (kitsSection != null) {
-            for (String key : kitsSection.getKeys(false)) {
-                try {
-                    ConfigurationSection kitSection = kitsSection.getConfigurationSection(key);
-                    // Parse the kit
-                    Kit kit = parseKitFromConfig(kitSection, startId);
-
-                    if (kit != null) {
-                        configKits.put(startId, kit);
-                    }
-                    startId++;
-                } catch (NumberFormatException e) {
-                    plugin.getLogger().warning("Invalid kit ID in config: " + key);
-                }
-            }
-        }
-        return configKits;
-    }
-
-    private Kit parseKitFromConfig(ConfigurationSection section, int kitId) {
-        String name = section.getString("name");
-        List<String> description = section.getStringList("description"); // Get description as a list
-        int cooldown = section.getInt("cooldown", 0); // Default cooldown to 0 if not specified
-        String permission = section.getString("permission", ""); // Default permission to empty string
-        //icon
-        String icon = section.getString("icon");
-        Material iconMaterial = Material.matchMaterial(icon);
-        ItemStack iconStack = new ItemStack(iconMaterial, 1);
-        ItemMeta meta = iconStack.getItemMeta();
-        meta.setCustomModelData(kitId);
-
-        iconStack.setItemMeta(meta);
-
-        // Parse items
-        List<ItemStack> items = new ArrayList<>();
-        List<Map<?, ?>> itemMaps = section.getMapList("items");
-        for (Map<?, ?> itemMap : itemMaps) {
-            String materialName = (String) itemMap.get("material");
-            int amount = (int) itemMap.get("amount");
-
-            Material material = Material.matchMaterial(materialName);
-            if (material != null) {
-                ItemStack item = new ItemStack(material, amount);
-                items.add(item);
-            } else {
-                plugin.getLogger().warning("Invalid material in kit: " + materialName);
-            }
-        }
-        ItemStack[] itemsStack = items.toArray(new ItemStack[0]);
-        // Create and return the Kit object
-        return new Kit(kitId,name, iconStack, description, itemsStack, cooldown);
     }
 
 

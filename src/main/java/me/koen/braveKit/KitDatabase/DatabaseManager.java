@@ -8,6 +8,7 @@ import me.koen.braveKit.kit.Kit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.sql.*;
 import java.util.*;
@@ -137,8 +138,13 @@ public class DatabaseManager {
     INSERT INTO kits (name, description, icon, items, is_active, cooldown, permission)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     """;
-
         ItemStack kitIcon = kit.getIcon();
+        if(kit.getKitId() == -1){
+            ItemMeta meta = kitIcon.getItemMeta();
+            meta.setCustomModelData(getKitId());
+            kitIcon.setItemMeta(meta);
+        }
+
         ReadWriteNBT nbtIcon = NBT.itemStackToNBT(kitIcon);
         String jsonIcon = nbtIcon.toString();
 
@@ -161,7 +167,20 @@ public class DatabaseManager {
         }
     }
 
-    public Map<Integer, Kit> getAllKits(int startId) {
+    public boolean findKitByName(String name) {
+        try (Connection connection = getConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT * FROM kits WHERE name = ?")) {
+            statement.setString(1, name);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next(); // Returns true if a row is found, otherwise false
+            }
+        } catch (SQLException e) {
+            return false; // Return false if an exception occurs
+        }
+    }
+
+    public Map<Integer, Kit> getAllKits() {
+        int startId = 1;
         String selectSQL = """
             SELECT id, name, description, icon, items, is_active, cooldown, permission 
             FROM kits
@@ -265,14 +284,18 @@ public class DatabaseManager {
      * @param kitId The kit ID that was used
      */
     public void recordKitUsage(Player player, int kitId) {
-        String query = "INSERT INTO kit_usage (kit_id, player_uuid, used_at) VALUES (?, ?, ?)";
+        String query = "INSERT INTO kit_usage (kit_id, player_uuid, used_at) VALUES (?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE used_at = ?";
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
+            Timestamp now = new Timestamp(System.currentTimeMillis());
+
             stmt.setInt(1, kitId);
             stmt.setString(2, player.getUniqueId().toString());
-            stmt.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+            stmt.setTimestamp(3, now);
+            stmt.setTimestamp(4, now); // This is for the ON DUPLICATE KEY UPDATE part
 
             stmt.executeUpdate();
 
